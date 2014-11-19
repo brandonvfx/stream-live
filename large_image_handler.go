@@ -114,9 +114,9 @@ func LargeImageHandler(w http.ResponseWriter, req *http.Request) {
 	log.Printf("LargeImageHandler - %s", stream)
 	stream_info, err := GetStream(stream)
 	if err != nil {
-		log.Println(err)
-		fmt.Fprint(w, err)
-		return
+		log.Println(fmt.Sprintf("[ERROR] - %v", err))
+		// fmt.Fprint(w, err)
+		// return
 	}
 
 	if stream_info.Live {
@@ -127,11 +127,16 @@ func LargeImageHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Get preview image
-	preview_src_image, err := getPreviewImage(preview_image_url)
-	if err != nil {
-		log.Println(err)
-		fmt.Fprint(w, err)
-		return
+	var preview_src_image image.Image
+	if preview_image_url != "" {
+		preview_src_image, err = getPreviewImage(preview_image_url)
+		if err != nil {
+			log.Println(err)
+			fmt.Fprint(w, err)
+			return
+		}
+	} else {
+		preview_src_image = missing_profile_image
 	}
 	// resize the preview
 	preview_image := resize.Resize(0, uint(height-2.0), preview_src_image, resize.Lanczos3)
@@ -179,16 +184,16 @@ func LargeImageHandler(w http.ResponseWriter, req *http.Request) {
 	left_side := 115
 	if stream_info.Live {
 		red := color.RGBA{0xDF, 0x2D, 0x28, 0xFF}
-		text_arial_black.AddText(output_img, stream_info.Stream.Channel.DisplayName, 16, image.Point{left_side + 37, 18}, color.White)
-		text_arial_bold.AddText(output_img, "[LIVE]", 12, image.Point{left_side, 16}, red)
+		text_bold.AddText(output_img, stream_info.Name, 16, image.Point{left_side + 37, 18}, color.White)
+		text_bold.AddText(output_img, "[LIVE]", 12, image.Point{left_side, 16}, red)
 		// max length 52 chars
-		text_arial_bold.AddText(output_img, TruncString(stream_info.Stream.Channel.Status, 52), 11, image.Point{left_side, 32}, color.White)
+		text_regular.AddText(output_img, TruncString(stream_info.Stream.Channel.Status, 52), 11, image.Point{left_side, 32}, color.White)
 		// max length 45 chars
-		text_arial_bold.AddText(output_img, "Playing - "+TruncString(stream_info.Stream.Game, 45), 11, image.Point{left_side, 45}, color.White)
-		text_arial_bold.AddText(output_img, humanize.Comma(int64(stream_info.Stream.Viewers))+" Viewers", 11, image.Point{left_side, 58}, color.White)
+		text_regular.AddText(output_img, "Playing - "+TruncString(stream_info.Stream.Game, 45), 11, image.Point{left_side, 45}, color.White)
+		text_regular.AddText(output_img, humanize.Comma(int64(stream_info.Stream.Viewers))+" Viewers", 11, image.Point{left_side, 58}, color.White)
 	} else {
-		text_arial_black.AddText(output_img, stream_info.Stream.Channel.DisplayName, 16, image.Point{left_side + 49, 18}, color.White)
-		text_arial_bold.AddText(output_img, "[Offline]", 12, image.Point{left_side, 16}, color.White)
+		text_bold.AddText(output_img, stream_info.Name, 16, image.Point{left_side + 52, 18}, color.White)
+		text_bold.AddText(output_img, "[Offline]", 12, image.Point{left_side, 16}, color.White)
 	}
 
 	err = png.Encode(w, output_img)

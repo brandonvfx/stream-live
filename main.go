@@ -1,124 +1,51 @@
 package main
 
 import (
-	"encoding/json"
-	"errors"
+	"bytes"
 	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
 	"image/png"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"path"
 
 	"github.com/gorilla/mux"
 )
 
-const font_dir = "./fonts/"
+const font_dir = "./assets/fonts/"
 const twitch_streams_api = "https://api.twitch.tv/kraken/streams/"
 const twitch_channels_api = "https://api.twitch.tv/kraken/channels/"
+const no_profile_image = "./assets/img/missing_profile_image.png"
 
-var text_arial, text_arial_bold, text_arial_black ImageText
+var text_regular, text_bold ImageText
+var missing_profile_image image.Image
 
 func init() {
-	text_arial = ImageText{
-		fontfile: font_dir + "Arial.ttf",
+	// Load fonts
+	text_regular = ImageText{
+		fontfile: path.Join(font_dir, "Chivo-Regular.ttf"),
 	}
-	text_arial.Init()
-	text_arial_bold = ImageText{
-		fontfile: font_dir + "Arial Bold.ttf",
+	text_regular.Init()
+	text_bold = ImageText{
+		fontfile: path.Join(font_dir, "Chivo-Black.ttf"),
 	}
-	text_arial_bold.Init()
-	text_arial_black = ImageText{
-		fontfile: font_dir + "Arial Black.ttf",
-	}
-	text_arial_black.Init()
-}
+	text_bold.Init()
 
-type Stream struct {
-	// Links  map[string]string `json:'_links'`
-	SearchName string
-	Stream     StreamInfo `json:"stream"`
-	Live       bool       `json:"live"`
-}
-
-type StreamInfo struct {
-	// Links   map[string]string `json:'_links'`
-	Preview map[string]string `json:"preview"`
-	ID      int               `json:"_id"`
-	Game    string            `json:"game"`
-	Viewers int               `json:"viewers"`
-	Channel Channel           `json:"channel"`
-}
-
-type Channel struct {
-	DisplayName string            `json:"display_name"`
-	Status      string            `json:"status"`
-	Name        string            `json:"name"`
-	Links       map[string]string `json:"_links"`
-	Logo        string            `json:"logo"`
-}
-
-func GetStream(stream_name string) (Stream, error) {
-	log.Printf("Checking Stream: %s", stream_name)
-	stream_req, err := http.NewRequest("GET", twitch_streams_api+stream_name, nil)
-	stream := Stream{SearchName: stream_name}
+	// Load missing preview image
+	data, err := ioutil.ReadFile(no_profile_image)
 	if err != nil {
-		return stream, err
+		log.Fatalln(err)
 	}
-	stream_req.Header = map[string][]string{
-		"Accept": {"application/vnd.twitchtv.v3+json"},
-	}
+	buf := bytes.NewBuffer(data)
 
-	client := http.Client{}
-	stream_resp, err := client.Do(stream_req)
+	missing_profile_image, _, err = image.Decode(buf)
 	if err != nil {
-		return stream, err
+		log.Fatalln(err)
 	}
-
-	if stream_resp.StatusCode == 404 {
-		return stream, errors.New("Invalid Username")
-	} else if stream_resp.StatusCode != 200 {
-		return stream, errors.New("Twitch Error")
-	}
-
-	dec := json.NewDecoder(stream_resp.Body)
-	err = dec.Decode(&stream)
-	if err != nil {
-		return stream, err
-	}
-
-	if stream.Stream.ID != 0 {
-		stream.Live = true
-	} else {
-		channel_req, err := http.NewRequest("GET", twitch_channels_api+stream_name, nil)
-		if err != nil {
-			return stream, err
-		}
-		stream_req.Header = map[string][]string{
-			"Accept": {"application/vnd.twitchtv.v3+json"},
-		}
-
-		stream_info_resp, err := client.Do(channel_req)
-		if err != nil {
-			return stream, err
-		}
-
-		if stream_info_resp.StatusCode != 200 {
-			return stream, errors.New("Twitch Error")
-		}
-
-		dec := json.NewDecoder(stream_info_resp.Body)
-		var stream_info StreamInfo
-		err = dec.Decode(&stream_info.Channel)
-		if err != nil {
-			return stream, err
-		}
-		stream.Stream = stream_info
-	}
-
-	return stream, nil
 }
 
 // Old test handler
@@ -140,26 +67,10 @@ func SmallTextHandler(w http.ResponseWriter, req *http.Request) {
 	rgba := image.NewRGBA(image.Rect(0, 0, length, 100))
 	draw.Draw(rgba, rgba.Bounds(), image.White, image.ZP, draw.Src)
 
-	text_arial_bold.AddText(rgba, stream, 16, image.Point{10, 21}, color.White)
+	text_bold.AddText(rgba, stream, 16, image.Point{10, 21}, color.White)
 	offset := (len(stream) * 8) + 10
-	text_arial.AddText(rgba, "Testing 1234", 16, image.Point{10 + offset, 21}, color.White)
+	text_regular.AddText(rgba, "Testing 1234", 16, image.Point{10 + offset, 21}, color.White)
 	err = png.Encode(w, rgba)
-	if err != nil {
-		fmt.Fprint(w, err)
-		return
-	}
-}
-
-func DebugHandler(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	stream := vars["stream"]
-	stream_info, err := GetStream(stream)
-	if err != nil {
-		fmt.Fprint(w, err)
-		return
-	}
-	json_encoder := json.NewEncoder(w)
-	err = json_encoder.Encode(stream_info)
 	if err != nil {
 		fmt.Fprint(w, err)
 		return
