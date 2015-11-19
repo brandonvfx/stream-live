@@ -4,9 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"image"
-	"image/color"
-	"image/draw"
-	"image/png"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -14,77 +11,72 @@ import (
 	"path"
 
 	"github.com/gorilla/mux"
+	"github.com/codegangsta/cli"
 )
 
-const font_dir = "./assets/fonts/"
-const twitch_streams_api = "https://api.twitch.tv/kraken/streams/"
-const twitch_channels_api = "https://api.twitch.tv/kraken/channels/"
-const no_profile_image = "./assets/img/missing_profile_image.png"
+const (
+	fontDir = "./assets/fonts/"
+	twitchStreamsAPI = "https://api.twitch.tv/kraken/streams/"
+	twitchChannelsAPI = "https://api.twitch.tv/kraken/channels/"
+	noProfileImage = "./assets/img/missing_profile_image.png"
+)
 
-var text_regular, text_bold ImageText
-var missing_profile_image image.Image
+var Version string
+var textRegular, textBold ImageText
+var missingProfileImage image.Image
 
 func init() {
 	// Load fonts
-	text_regular = ImageText{
-		fontfile: path.Join(font_dir, "Chivo-Regular.ttf"),
+	textRegular = ImageText{
+		fontfile: path.Join(fontDir, "Chivo-Regular.ttf"),
 	}
-	text_regular.Init()
-	text_bold = ImageText{
-		fontfile: path.Join(font_dir, "Chivo-Black.ttf"),
+	textRegular.Init()
+	textBold = ImageText{
+		fontfile: path.Join(fontDir, "Chivo-Black.ttf"),
 	}
-	text_bold.Init()
+	textBold.Init()
 
 	// Load missing preview image
-	data, err := ioutil.ReadFile(no_profile_image)
+	data, err := ioutil.ReadFile(noProfileImage)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	buf := bytes.NewBuffer(data)
 
-	missing_profile_image, _, err = image.Decode(buf)
+	missingProfileImage, _, err = image.Decode(buf)
 	if err != nil {
 		log.Fatalln(err)
 	}
 }
 
-// Old test handler
-func SmallTextHandler(w http.ResponseWriter, req *http.Request) {
-	log.Println("Start")
-	vars := mux.Vars(req)
-	stream := vars["stream"]
-	stream_info, err := GetStream(stream)
-	if err != nil {
-		fmt.Fprint(w, err)
-		return
-	}
-
-	if stream_info.Live {
-		stream = stream_info.Stream.Channel.DisplayName
-	}
-
-	length := 250
-	rgba := image.NewRGBA(image.Rect(0, 0, length, 100))
-	draw.Draw(rgba, rgba.Bounds(), image.White, image.ZP, draw.Src)
-
-	text_bold.AddText(rgba, stream, 16, image.Point{10, 21}, color.White)
-	offset := (len(stream) * 8) + 10
-	text_regular.AddText(rgba, "Testing 1234", 16, image.Point{10 + offset, 21}, color.White)
-	err = png.Encode(w, rgba)
-	if err != nil {
-		fmt.Fprint(w, err)
-		return
-	}
-}
-
 func main() {
-	r := mux.NewRouter()
-	r.HandleFunc("/small/{stream}.png", SmallTextHandler)
-	r.HandleFunc("/large/{stream}.png", LargeImageHandler)
-	r.HandleFunc("/debug/{stream}", DebugHandler)
+	app := cli.NewApp()
+	app.Name = "stream-live"
+	app.Version = Version
 
-	http.Handle("/", r)
-	port := os.Getenv("PORT")
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
+	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:   "port, p",
+			Value:  "8000",
+			Usage:  "Port to listen on",
+			EnvVar: "PORT",
+		},
+		cli.BoolFlag{
+			Name:   "debug-endpoint, d",
+			Usage:  "Enable debug endpoint",
+		},
+	}
 
+	app.Action = func(c *cli.Context) {
+		log.Printf("stream-live Version: %v", Version)
+		r := mux.NewRouter()
+		r.HandleFunc("/{stream}.png", largeImageHandler)
+		if c.Bool("debug-endpoint") {
+			r.HandleFunc("/debug/{stream}", debugHandler)
+		}
+		
+		http.Handle("/", r)
+		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", c.String("port")), nil))
+	}
+	app.Run(os.Args)
 }

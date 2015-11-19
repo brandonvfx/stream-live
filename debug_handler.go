@@ -8,16 +8,16 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func DebugHandler(w http.ResponseWriter, req *http.Request) {
+func debugHandler(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	stream := vars["stream"]
-	stream_info, err := GetStream(stream)
+	streamInfo, err := getStream(stream)
 	if err != nil {
 		fmt.Fprint(w, err)
 		return
 	}
-	json_encoder := json.NewEncoder(w)
-	err = json_encoder.Encode(stream_info)
+	jsonEncoder := json.NewEncoder(w)
+	err = jsonEncoder.Encode(streamInfo)
 	if err != nil {
 		fmt.Fprint(w, err)
 		return

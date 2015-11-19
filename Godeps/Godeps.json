@@ -1,20 +1,20 @@
 {
 	"ImportPath": "github.com/brandonvfx/stream-live",
-	"GoVersion": "go1.3.3",
+	"GoVersion": "go1.5.1",
 	"Deps": [
 		{
-			"ImportPath": "code.google.com/p/draw2d/draw2d",
-			"Comment": "release-19",
-			"Rev": "5e9b862124bea783ee751bdf5062710bb010e8ae"
-		},
-		{
-			"ImportPath": "code.google.com/p/freetype-go/freetype",
-			"Comment": "release-83",
-			"Rev": "4ee4916a76ae3d8090397720251cef12f830a1ec"
+			"ImportPath": "github.com/codegangsta/cli",
+			"Comment": "1.2.0-107-g942282e",
+			"Rev": "942282e931e8286aa802a30b01fa7e16befb50f3"
 		},
 		{
 			"ImportPath": "github.com/dustin/go-humanize",
 			"Rev": "cbc4167517eda1674812a41e2b73a3dcdf2428a8"
+		},
+		{
+			"ImportPath": "github.com/golang/freetype",
+			"Comment": "release-120-gf29eb11",
+			"Rev": "f29eb116deb328d02ee5c573f02d442ca67d5532"
 		},
 		{
 			"ImportPath": "github.com/gorilla/context",
@@ -25,8 +25,21 @@
 			"Rev": "e444e69cbd2e2e3e0749a2f3c717cec491552bbf"
 		},
 		{
+			"ImportPath": "github.com/llgcode/draw2d",
+			"Comment": "v1-65-g9ffe0e7",
+			"Rev": "9ffe0e7eb54c1b3d28eb45a24b578dc2d1bdb6b3"
+		},
+		{
 			"ImportPath": "github.com/nfnt/resize",
 			"Rev": "7e2ce0a2ea0c5407dbdc8de2c42cca5432c0a242"
+		},
+		{
+			"ImportPath": "golang.org/x/image/font",
+			"Rev": "baddd3465a05d84a6d8d3507547a91cb188c81ea"
+		},
+		{
+			"ImportPath": "golang.org/x/image/math/fixed",
+			"Rev": "baddd3465a05d84a6d8d3507547a91cb188c81ea"
 		}
 	]
 }
