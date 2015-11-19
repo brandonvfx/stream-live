@@ -15,7 +15,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nfnt/resize"
 
-	"code.google.com/p/draw2d/draw2d"
+	"github.com/llgcode/draw2d/draw2dimg"
 )
 
 func drawRoundedRect(dst draw.Image,
@@ -25,13 +25,13 @@ func drawRoundedRect(dst draw.Image,
 	strokeColor color.Color,
 	strokeWidth float64) {
 	x, y := 0.0, 0.0
-	aspect := 1.0                 /* aspect ratio */
-	corner_radius := height / 7.5 /* and corner curvature radius */
+	aspect := 1.0                /* aspect ratio */
+	cornerRadius := height / 7.5 /* and corner curvature radius */
 
-	radius := corner_radius / aspect
+	radius := cornerRadius / aspect
 	degrees := math.Pi / 180.0
 
-	gcbg := draw2d.NewGraphicContext(dst)
+	gcbg := draw2dimg.NewGraphicContext(dst)
 	gcbg.SetStrokeColor(image.Black)
 	gcbg.SetFillColor(image.White)
 	gcbg.ArcTo(x+width-radius, y+radius, radius, radius, -90*degrees, 90*degrees)
@@ -48,12 +48,12 @@ func drawRoundedRect(dst draw.Image,
 func drawMask(dst draw.Image) {
 	width := float64(dst.Bounds().Dx())
 	height := float64(dst.Bounds().Dy())
-	gc := draw2d.NewGraphicContext(dst)
+	gc := draw2dimg.NewGraphicContext(dst)
 	x, y := 0.0, 0.0
-	aspect := 1.0                 /* aspect ratio */
-	corner_radius := height / 7.5 /* and corner curvature radius */
+	aspect := 1.0                /* aspect ratio */
+	cornerRadius := height / 7.5 /* and corner curvature radius */
 
-	radius := corner_radius / aspect
+	radius := cornerRadius / aspect
 	degrees := math.Pi / 180.0
 
 	// Mask
@@ -72,99 +72,85 @@ func drawMask(dst draw.Image) {
 	gc.FillStroke()
 }
 
-func getPreviewImage(img_url string) (image.Image, error) {
-	var tmp_img image.Image
-	resp, err := http.Get(img_url)
+func getPreviewImage(imgURL string) (image.Image, error) {
+	var tmpImg image.Image
+	resp, err := http.Get(imgURL)
 	if err != nil {
-		return tmp_img, err
+		return tmpImg, err
 	}
 
-	preview_img, _, err := image.Decode(resp.Body)
+	previewImg, _, err := image.Decode(resp.Body)
 	if err != nil {
-		return tmp_img, err
+		return tmpImg, err
 	}
-	return preview_img, nil
+	return previewImg, nil
 }
 
-func LargeImageHandler(w http.ResponseWriter, req *http.Request) {
-	// Fonts
-	// text_arial := ImageText{
-	// 	fontfile: "/Library/Fonts/Arial.ttf",
-	// }
-	// text_arial.Init()
-	// text_arial_bold := ImageText{
-	// 	fontfile: "/Library/Fonts/Arial Bold.ttf",
-	// }
-	// text_arial_bold.Init()
-	// text_arial_black := ImageText{
-	// 	fontfile: "/Library/Fonts/Arial Black.ttf",
-	// }
-	// text_arial_black.Init()
-
+func largeImageHandler(w http.ResponseWriter, req *http.Request) {
 	// Settings
 	width, height := 430.0, 64.0
-	preview_width := 150
-	preview_image_offset := 24
+	previewWidth := 150
+	previewImageOffset := 24
 
-	var preview_image_url string
+	var previewImageURL string
 
 	// url vars
 	vars := mux.Vars(req)
 	stream := vars["stream"]
 	log.Printf("LargeImageHandler - %s", stream)
-	stream_info, err := GetStream(stream)
+	streamInfo, err := getStream(stream)
 	if err != nil {
 		log.Println(fmt.Sprintf("[ERROR] - %v", err))
 		// fmt.Fprint(w, err)
 		// return
 	}
 
-	if stream_info.Live {
-		preview_image_offset = 0
-		preview_image_url = stream_info.Stream.Preview["medium"]
+	if streamInfo.Live {
+		previewImageOffset = 0
+		previewImageURL = streamInfo.Stream.Preview["medium"]
 	} else {
-		preview_image_url = stream_info.Stream.Channel.Logo
+		previewImageURL = streamInfo.Stream.Channel.Logo
 	}
 
 	// Get preview image
-	var preview_src_image image.Image
-	if preview_image_url != "" {
-		preview_src_image, err = getPreviewImage(preview_image_url)
+	var previewSrcImage image.Image
+	if previewImageURL != "" {
+		previewSrcImage, err = getPreviewImage(previewImageURL)
 		if err != nil {
 			log.Println(err)
 			fmt.Fprint(w, err)
 			return
 		}
 	} else {
-		preview_src_image = missing_profile_image
+		previewSrcImage = missingProfileImage
 	}
 	// resize the preview
-	preview_image := resize.Resize(0, uint(height-2.0), preview_src_image, resize.Lanczos3)
+	previewImage := resize.Resize(0, uint(height-2.0), previewSrcImage, resize.Lanczos3)
 
 	// create the output image and it's background
-	output_img := image.NewRGBA(image.Rect(0, 0, int(width), int(height)))
-	drawRoundedRect(output_img,
+	outputImg := image.NewRGBA(image.Rect(0, 0, int(width), int(height)))
+	drawRoundedRect(outputImg,
 		width,
 		height,
-		color.RGBA{0x64, 0x41, 0xA5, 0xFF},
+		color.RGBA{0x64, 0x41, 0xA5, 0xFF},  // Twitch purple
 		image.White,
 		1.0)
 
 	// Create mask for preview image
-	mask_img := image.NewRGBA(image.Rect(0, 0, int(preview_width), int(height)))
-	drawMask(mask_img)
+	maskImg := image.NewRGBA(image.Rect(0, 0, int(previewWidth), int(height)))
+	drawMask(maskImg)
 
 	// Comp the preview image over the bg using the mask.
-	draw.DrawMask(output_img,
-		output_img.Bounds(),
-		preview_image,
-		image.Point{-preview_image_offset, 0},
-		mask_img,
+	draw.DrawMask(outputImg,
+		outputImg.Bounds(),
+		previewImage,
+		image.Point{-previewImageOffset, 0},
+		maskImg,
 		image.Point{0, 0},
 		draw.Over)
 
 	// Redraw the border.
-	drawRoundedRect(output_img,
+	drawRoundedRect(outputImg,
 		width,
 		height,
 		image.Transparent,
@@ -172,31 +158,46 @@ func LargeImageHandler(w http.ResponseWriter, req *http.Request) {
 		1.0)
 
 	// Draw divider
-	gc_line := draw2d.NewGraphicContext(output_img)
-	gc_line.SetStrokeColor(image.White)
-	gc_line.SetFillColor(image.Transparent)
-	gc_line.MoveTo(110, 0)
-	gc_line.LineTo(110, 0)
-	gc_line.LineTo(110, height)
-	gc_line.SetLineWidth(1.5)
-	gc_line.FillStroke()
+	gcLine := draw2dimg.NewGraphicContext(outputImg)
+	gcLine.SetStrokeColor(image.White)
+	gcLine.SetFillColor(image.Transparent)
+	gcLine.MoveTo(110, 0)
+	gcLine.LineTo(110, 0)
+	gcLine.LineTo(110, height)
+	gcLine.SetLineWidth(1.5)
+	gcLine.FillStroke()
 
-	left_side := 115
-	if stream_info.Live {
+	leftSide := 115
+	if streamInfo.Live {
 		red := color.RGBA{0xDF, 0x2D, 0x28, 0xFF}
-		text_bold.AddText(output_img, stream_info.Name, 16, image.Point{left_side + 37, 18}, color.White)
-		text_bold.AddText(output_img, "[LIVE]", 12, image.Point{left_side, 16}, red)
+		textBold.AddText(outputImg, streamInfo.Name, 16 , image.Point{leftSide + 37, 18}, color.White)
+		textBold.AddText(outputImg, "[LIVE]", 12 , image.Point{leftSide, 17}, red)
 		// max length 52 chars
-		text_regular.AddText(output_img, TruncString(stream_info.Stream.Channel.Status, 52), 11, image.Point{left_side, 32}, color.White)
+		textRegular.AddText(
+			outputImg, 
+			TruncString(streamInfo.Stream.Channel.Status, 52), 
+			11 , 
+			image.Point{leftSide, 32}, 
+			color.White)
 		// max length 45 chars
-		text_regular.AddText(output_img, "Playing - "+TruncString(stream_info.Stream.Game, 45), 11, image.Point{left_side, 45}, color.White)
-		text_regular.AddText(output_img, humanize.Comma(int64(stream_info.Stream.Viewers))+" Viewers", 11, image.Point{left_side, 58}, color.White)
+		textRegular.AddText(
+			outputImg, 
+			fmt.Sprintf("Playing - %s", TruncString(streamInfo.Stream.Game, 45)), 
+			11 , 
+			image.Point{leftSide, 45}, 
+			color.White)
+		textRegular.AddText(
+			outputImg, 
+			humanize.Comma(int64(streamInfo.Stream.Viewers))+" Viewers", 
+			11 , 
+			image.Point{leftSide, 58}, 
+			color.White)
 	} else {
-		text_bold.AddText(output_img, stream_info.Name, 16, image.Point{left_side + 52, 18}, color.White)
-		text_bold.AddText(output_img, "[Offline]", 12, image.Point{left_side, 16}, color.White)
+		textBold.AddText(outputImg, streamInfo.Name, 16, image.Point{leftSide + 52, 18}, color.White)
+		textBold.AddText(outputImg, "[Offline]", 12, image.Point{leftSide, 17}, color.White)
 	}
 
-	err = png.Encode(w, output_img)
+	err = png.Encode(w, outputImg)
 	if err != nil {
 		log.Println(err)
 		fmt.Fprint(w, err)

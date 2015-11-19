@@ -8,23 +8,21 @@ import (
 	"net/http"
 )
 
-type Stream struct {
-	// Links  map[string]string `json:'_links'`
+type stream struct {
 	Name   string
-	Stream StreamInfo `json:"stream"`
+	Stream streamData `json:"stream"`
 	Live   bool       `json:"live"`
 }
 
-type StreamInfo struct {
-	// Links   map[string]string `json:'_links'`
+type streamData struct {
 	Preview map[string]string `json:"preview"`
 	ID      int               `json:"_id"`
 	Game    string            `json:"game"`
 	Viewers int               `json:"viewers"`
-	Channel Channel           `json:"channel"`
+	Channel channel           `json:"channel"`
 }
 
-type Channel struct {
+type channel struct {
 	DisplayName string            `json:"display_name"`
 	Status      string            `json:"status"`
 	Name        string            `json:"name"`
@@ -32,65 +30,65 @@ type Channel struct {
 	Logo        string            `json:"logo"`
 }
 
-func GetStream(stream_name string) (Stream, error) {
-	log.Printf("Checking Stream: %s", stream_name)
-	stream_req, err := http.NewRequest("GET", twitch_streams_api+stream_name, nil)
-	stream := Stream{Name: stream_name, Live: false}
+func getStream(streamName string) (stream, error) {
+	log.Printf("Checking Stream: %s", streamName)
+	streamReq, err := http.NewRequest("GET", twitchStreamsAPI+streamName, nil)
+	streamInst := stream{Name: streamName, Live: false}
 	if err != nil {
-		return stream, err
+		return streamInst, err
 	}
-	stream_req.Header = map[string][]string{
+	streamReq.Header = map[string][]string{
 		"Accept": {"application/vnd.twitchtv.v3+json"},
 	}
 
 	client := http.Client{}
-	stream_resp, err := client.Do(stream_req)
+	streamResp, err := client.Do(streamReq)
 	if err != nil {
-		return stream, err
+		return streamInst, err
 	}
 
-	if stream_resp.StatusCode == 404 {
-		return stream, errors.New("Invalid Username")
-	} else if stream_resp.StatusCode != 200 {
-		log.Printf("[ERROR] %s - %s", stream_name, stream_resp.Status)
-		return stream, errors.New(fmt.Sprintf("Twitch Error - %s", stream_resp.Status))
+	if streamResp.StatusCode == 404 {
+		return streamInst, errors.New("Invalid Username")
+	} else if streamResp.StatusCode != 200 {
+		log.Printf("[ERROR] %s - %s", streamName, streamResp.Status)
+		return streamInst, fmt.Errorf("Twitch Error - %s", streamResp.Status)
 	}
 
-	dec := json.NewDecoder(stream_resp.Body)
-	err = dec.Decode(&stream)
+	dec := json.NewDecoder(streamResp.Body)
+	err = dec.Decode(&streamInst)
 	if err != nil {
-		return stream, err
+		return streamInst, err
 	}
 
-	if stream.Stream.ID != 0 {
-		stream.Live = true
-		stream.Name = stream.Stream.Channel.DisplayName
+	if streamInst.Stream.ID != 0 {
+		streamInst.Live = true
+		streamInst.Name = streamInst.Stream.Channel.DisplayName
 	} else {
-		channel_req, err := http.NewRequest("GET", twitch_channels_api+stream_name, nil)
+		channelReq, err := http.NewRequest("GET", twitchChannelsAPI+streamName, nil)
 		if err != nil {
-			return stream, err
+			return streamInst, err
 		}
-		stream_req.Header = map[string][]string{
+		streamReq.Header = map[string][]string{
 			"Accept": {"application/vnd.twitchtv.v3+json"},
 		}
 
-		stream_info_resp, err := client.Do(channel_req)
+		streamInfoResp, err := client.Do(channelReq)
 		if err != nil {
-			return stream, err
+			return streamInst, err
 		}
 
-		if stream_info_resp.StatusCode != 200 {
-			return stream, errors.New("Twitch Error")
+		if streamInfoResp.StatusCode != 200 {
+			return streamInst, errors.New("Twitch Error")
 		}
 
-		dec := json.NewDecoder(stream_info_resp.Body)
-		var stream_info StreamInfo
-		err = dec.Decode(&stream_info.Channel)
+		dec := json.NewDecoder(streamInfoResp.Body)
+		var streamInfo streamData
+		err = dec.Decode(&streamInfo.Channel)
 		if err != nil {
-			return stream, err
+			return streamInst, err
 		}
-		stream.Stream = stream_info
+		streamInst.Stream = streamInfo
 	}
 
-	return stream, nil
+	return streamInst, nil
 }
